@@ -19,6 +19,21 @@ public class Order {
     @Column(name = "order_id")
     private Long id;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.PERSIST)
+    @OneToMany(mappedBy = "order", cascade = {CascadeType.PERSIST, CascadeType.REMOVE})
     private List<OrderItem> orderItems = new ArrayList<>();
+
+    public static Order create(List<OrderItem> orderItems) {
+        orderItems.forEach(OrderItem::manageStock);
+        return new Order(orderItems);
+    }
+
+    private Order(List<OrderItem> orderItems) {
+        this.orderItems.addAll(createWithOrder(orderItems));
+    }
+
+    private List<OrderItem> createWithOrder(List<OrderItem> orderItems) {
+        return orderItems.stream()
+                .map(orderItem -> new OrderItem(orderItem.getItem(), this, orderItem.getQuantity()))
+                .toList();
+    }
 }

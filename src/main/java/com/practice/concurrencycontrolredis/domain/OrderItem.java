@@ -25,4 +25,18 @@ public class OrderItem {
     private Order order;
 
     private Integer quantity;
+
+    public OrderItem(Item item, Integer quantity) {
+        this(item, null, quantity);
+    }
+
+    public OrderItem(Item item, Order order, Integer quantity) {
+        this.item = item;
+        this.order = order;
+        this.quantity = quantity;
+    }
+
+    public void manageStock() {
+        item.minusStock(quantity);
+    }
 }
