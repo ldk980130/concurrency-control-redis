@@ -19,6 +19,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ItemRepository itemRepository;
 
+    @ConcurrencyControl(target = "item")
     public Long order(OrderRequest request) {
         List<OrderItem> orderItems = convertToOrderItems(request);
         Order order = Order.create(orderItems);
