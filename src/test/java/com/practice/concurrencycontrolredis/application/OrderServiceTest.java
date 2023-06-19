@@ -36,6 +36,8 @@ class OrderServiceTest {
     private Long friedChickenId;
     private Long cheeseBallId;
 
+    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
+
     @BeforeEach
     void init() {
         Item spicyChicken = new Item("양념 치킨", 50);
@@ -80,24 +82,60 @@ class OrderServiceTest {
     }
 
     @Test
-    void 동시에_60개의_주문을_처리한다() throws InterruptedException {
+    void 동시에_여러_단일_주문을_처리한다() throws InterruptedException {
+        // given
+        int requestCount = 11;
+        CountDownLatch latch = new CountDownLatch(requestCount);
+
+        OrderRequest orderRequest = new OrderRequest(List.of(
+                new OrderItemRequest(spicyChickenId, 5),
+                new OrderItemRequest(friedChickenId, 5),
+                new OrderItemRequest(cheeseBallId, 10))
+        );
+
+        // when
+        for (int i = 0; i < requestCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    orderService.order(orderRequest);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        latch.await();
+
+        // then
+        Integer spicyStock = itemRepository.findById(spicyChickenId).orElseThrow().getStock();
+        Integer friedStock = itemRepository.findById(friedChickenId).orElseThrow().getStock();
+        Integer ballStock = itemRepository.findById(cheeseBallId).orElseThrow().getStock();
+        int successOrderCount = orderRepository.findAll().size();
+        assertAll(
+                () -> assertThat(spicyStock).isEqualTo(0),
+                () -> assertThat(friedStock).isEqualTo(0),
+                () -> assertThat(ballStock).isEqualTo(0),
+
+                () -> assertThat(successOrderCount).isEqualTo(10)
+        );
+    }
+
+    @Test
+    void 동시에_60개의_다양한_주문을_처리한다() throws InterruptedException {
         // given
         int requestCount = 60;
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
         CountDownLatch latch = new CountDownLatch(requestCount);
 
         OrderRequest request1 = new OrderRequest(List.of(
                 new OrderItemRequest(spicyChickenId, 1),
-                new OrderItemRequest(cheeseBallId, 3)
+                new OrderItemRequest(cheeseBallId, 1)
         ));
         OrderRequest request2 = new OrderRequest(List.of(
-                new OrderItemRequest(spicyChickenId, 1),
                 new OrderItemRequest(friedChickenId, 1),
-                new OrderItemRequest(cheeseBallId, 1)
+                new OrderItemRequest(cheeseBallId, 2)
         ));
         OrderRequest request3 = new OrderRequest(List.of(
                 new OrderItemRequest(spicyChickenId, 1),
-                new OrderItemRequest(cheeseBallId, 4)
+                new OrderItemRequest(cheeseBallId, 2)
         ));
 
         // when
@@ -137,11 +175,11 @@ class OrderServiceTest {
         Integer ballStock = itemRepository.findById(cheeseBallId).orElseThrow().getStock();
         int successOrderCount = orderRepository.findAll().size();
         assertAll(
-                () -> assertThat(spicyStock).isEqualTo(0),
+                () -> assertThat(spicyStock).isEqualTo(10),
                 () -> assertThat(friedStock).isEqualTo(30),
                 () -> assertThat(ballStock).isEqualTo(0),
 
-                () -> assertThat(successOrderCount).isEqualTo(45)
+                () -> assertThat(successOrderCount).isEqualTo(60)
         );
     }
 }
